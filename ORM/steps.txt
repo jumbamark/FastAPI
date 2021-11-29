@@ -515,8 +515,44 @@ venv - we have no idea if someone cloning our repo is going to be using a virtua
 create for them a requirements.txt file to know the packages they need installed; pip freeze > requirements.txt
 for anyone that clons our repo all they have to do to install all of them; pip install -r requirements.txt
 
-
+GIT
 Setting up a remote repository so that we can store all of our code on github.
 git init  - it's going to initialize git
+git add --all  - it's gonna add all of the files that we have in our directory into git
+Any time you add a file you have to commit it;
+git commit -m "inital commit"
+git branch -M main -  it's gonna set our main branch to be called Main
+Set up a remote branch - what's gonna allow us to store all of our code on github;
+git remote add origin https://github.com/jumbamark/FastAPI.git  (we're naming it origin, you can technically call it anything you want)
+git push -u origin main   - we are actually going to push all of our code upto github
+
+At this point our repo is set up and we can move on to deploying our application.
 
 
+DEPLOYMENT
+First of two deployment methods that we are gonna cover;
+heroku login
+heroku create --help
+heroku create {app name-fastapi-mark}
+git remote  (shows all the remotes that have been set up for our git, there's two now - heroku and origin)
+This is ultimately how we deploy our app, instead of doing git push origin main to push to github -> git push heroku main (pushes our code to the heroku platform it will then create an instance for our application)
+git push heroku main
+Our application has succesfully been deployed
+gives us the url, copy in the browser - if you let it run long enough you are eventually going to see an errror
+We pushed our code to heroku but heroku has no idea how to actually start our application.
+when we deploy to our development environment, we ran uvicorn ORM.main:app but we haven't given that command to heroku 
+We have to create afile that is going to tell heroku the exact command that we wanna run;
+
+Inside root directory create a file called Procfile
+Procfile just tells heroku what is the commmand that we need to start our application 
+we give it a process type and the command needed to run it (web-this is a web application that's gonna be responding web requests, uvicorn...)
+we dont pass in the --reload flag bec this is production, we dont want it to automatically reload on changes bec there should be no changes.
+We have to provide the host IP -> [--host=0.0.0.0 ]- we should be able to respond to requests from any IP
+port flag (what port should we run this on) -> [--port=${PORT: -5000}] - if we dont provide a port flag then it's gonna default to port 8000. Heroku provides us a port,we dont know what it is ahead of time so we have to able to accept it regardless of what it is. It's going to pass this down as an environment variable. Any time you want to accept or reference an env var; ${} -> we want to take whatever value heroku gives us with the env var of port and we wanna assign it here. This is just giving a default value of 5000 if they dont provide one
+
+After you make this file you then have to push out this changes to git once again
+git status
+git add --all
+git commit -m "added Procfile"
+git push origin main
+git push heroku main

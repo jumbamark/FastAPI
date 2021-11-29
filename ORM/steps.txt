@@ -552,7 +552,11 @@ port flag (what port should we run this on) -> [--port=${PORT: -5000}] - if we d
 
 After you make this file you then have to push out this changes to git once again
 git status
-git add --all
+git add --all/ git add .
 git commit -m "added Procfile"
 git push origin main
 git push heroku main
+
+Any timeyour application is not working on heroku;
+heroku logs --help
+heroku logs -t

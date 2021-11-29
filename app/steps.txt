@@ -1,0 +1,39 @@
+MAIN.PY
+
+cd FastAPI
+python3 -m venv venv
+source venv/bin/activate
+Install the FastAPI package
+pip install fastapi[all]
+
+# Starting our web server up
+uvicorn <filename>:app
+uvicorn <filename>:app --reload
+
+create a folder (python package) - for sth to properly act as a pacakge python requires you to create a dummy file; __init__.py 
+uvicorn <package name>.<filename>:app --reload
+
+extracted data directly from the body with no database (data is not being validated, client can send whatever data they want)
+
+We need a schema - we want to force the cleint to send data in a schema that we expect
+we use the pydantic library to define what a scema should look like
+
+#Fastapi has built in docs
+add docs or redoc to the end of the root url
+
+In pgadmin 4
+Defining a new server instance;
+Right click on servers > click on create > servers
+give it a name under General
+Specify the Connection details 
+Under Host; give the ip address that the postgres instance runs; bec it's running on our local machine we just say local host, if it was running within AWS or some cloud provider that clod provider would provide you an IP address or domain name to connect to
+
+# Working with postgres db within a python application - we need a postgres driver (psychopg2)
+connection to the db can fail maybe the db is unreachable or down,wrong passw; anytime we have some kind of code within python that could potentially fail we use the try statement
+
+
+
+POSTGRES.PY
+uvicorn postgres.postgres.py:app --reload
+Any data we get from the user, we have no idea if they put in special sql(which can alter our db) data so we always want to use placeholders 
+

@@ -1,0 +1,522 @@
+uvicorn ORM.main.py:app --reload
+ORM - Object Relational Mapper (layer of obstruction that sits between the db and our FastAPI) - ways of interacting with db 
+we can perform all db operations through traditional python code, no more sql
+What ORMs can do;
+instead of manually defining tables in postgres, we can define our tables as python models
+Queries can be made exclusively through python code,no sql is necessary
+ORMs - sqlalchemy (one of the most popular python ORMs)
+It's a standalone library that has no association with FastAPI. can be used with any other python framework or app
+pip install sqlalchemy
+
+#  specify our connection string - where our postgres db is loacted
+SQLALCHEMY_DATABASE_URL = 'postgresql://<username>:<password>:@<ip-address/hostname>/<database_name>'
+SQLALCHEMY_DATABASE_URL = "postgresql://marrion:Joyce98@localhost:5432/FastAPI" - before using env variables
+when using env variable you include an f string
+# create an engine - what's responsible for the sqlalchemy to connect to a postgres db
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
+
+When you actually want to talk to the sql db we have to make use of a session
+SessionLocator = sessionmaker(autocommit=False, autoflush=False,bind=engine)
+
+Define our base class - all the models that we defined to actually create our tables in postgresare gonna be extending this base class
+Base = declarative_base()
+Create a file that will define all of our models; models.py
+
+go to main.py;
+code in the engine command - creates all of our models
+create the dependency (db.py) - the session object is what's responsible for talking with the db. We create this function where we actually get a session to the db, every time we get a request we gonna get a session,we going to be able to send sql statements to it and after the request is done we close it out.
+
+
+If you save your mmodels it creates the table in postgres
+sqlalchemy generates your tables but it does it in a very simple manner, doesn't help in modifying tables(making changes to our tables/ migrations)
+
+
+schema/pydantic model - Post model in main.py (refering in posts)  - defines the structure of a request and response (ensures that when a user wants to create a post, the request will only go through if it has a "title", "content" etc in body - performs validation)
+orm/sqlalchemy model - Post model in models.py (defines what our specific table(columns) in our db looks like) 
+schemas moved to its own file
+In posts : Post replace Post with schemas.Post
+create two different classes for eaach specific request - say you want the user to only update published,thats the field you pass in in the update class
+create a postbase class and extend that class
+replace schemas.Post with schemas.PostCreate
+
+SENDING A RESPONSE BACK - just like we can define what a request should look like we can also define what a response should look like; what to return to user
+In schemas.py create a class that handles response - within the decorator pass in a response model field
+
+pydantic model only reads dicts, passing in the orm_mode(in response class) will make it read the response model even though its not a dict
+
+response model is different in retrieving posts bec we're sending back a list of posts and it's trying to shape that into one individual post, to specify we want a list of posts we have to import sth from the typing library (List)
+
+Creating user functionality - having users be able to create an account within our app, being able to login as well as being able to create posts that are asscoiated with their specific accounts
+Handling user registration - enable users to create a new account ( define our model)
+
+hashing the password when the user first registers to avoid storing it raw in the database
+we install passlib which handles hashing in python and install it together with an algorithim((Bcrypt) pip install passlib[bcrypt]
+
+create a utils.py - holds a bunch of utilities
+extract all the hashing logic and store it in it's own function
+
+Create a route that allows to fetch info about a user based off their ID;
+it can be part of the authentication process (If you decide to set up JWT tokens to get send as cookies then the frontend may not know whether it's logged in or not)
+retrieve a users profile if you wanna view it
+
+ROUTERS - used to split path operations to organize code
+All our routers are in main.py - we create two separate files; for posts and users
+create a route folder in ORM and create the two files
+copy the routes for posts in posts.py and those for users in users.py
+Link the routers to main.py file
+add a router to individual files and add a prefix in the router to remove the path repetition (/posts/....)
+
+localhost:8000/docs
+Go to docs and group them accordingly based of their specific action (group titled posts, another titled users)
+go to routers - post.py in route and add a tag (groups our particular requests into categories)
+
+AUTHENTICATION
+Two main ways to taackle authentication;
+session based authentication - we store sth on our backend server to track whether a user is logged in
+JWT Token Authentication - it's state pass (there's nothing on our backend/API that actually keeps track or stores some sort of info whether a user is logged in or out), the token itself actually keeps track of whether a user is logged in or not
+
+JWT Token Authenticatiom
+Client -> API
+User logs in: provides credentials > verify if they are valid ; if valid > create JWT token
+we'll send a response back with the token
+Client <- API
+Client -/posts {token}-> API   when app requires user to be loggged in to retrieve posts;he'll send a request to the /post endpoints but also provides the token in the header of the request > API verifies if token is valid > sends data
+Token contains; header(algo and token type), payload(data), verify signature(combination of three things- the first two and our secret-only on our API, nobody knows it)
+ 
+ Create the login path
+ Since the user is going to be providing the login info it makes sense to create a schema that makes sure they provide valid data
+
+ Creating tokens
+ Define our function (create_access_token)
+ the access token is gonna have a payload, whatever data we want too encode into the token we have to provide that (of type dict)
+ make a copy of the data
+ create the xpiration field - provide the time of 30 mins from now (current time + 30 mins)
+ grab the copy of the dict and update it and pass in expiration and provide expire time - adding extra property into all that data we want to encode into jwt 
+ call jwt and pass in everything that we want to put into the payload, secret key and algorithm
+ Go back to specific path operation
+ copy the jwt token and go into jwt.io to decode it
+
+ # retrieving user_credentials in our log in route - instead of passing in whatever we use a built in utility in the fastapi library (OAuth2Password..)
+
+def login(user_credentials: OAuth2PasswordRequestForm = Depends, db: Session = Depends(database.get_db)):
+    user = db.query(models.User).filter(
+        models.User.email == user_credentials.email).first()
+
+
+ def login(user_credentials: schemas.UserLogin, db: Session = Depends(database.get_db)) --> def login(user_credentials: OAuth2PasswordRequestForm = Depends, db: Session = Depends(database.get_db))
+We set up a dependency kind of like we do with th db, this will require us to retrieve the credentials and fastapi will store inside the user_credentials variable
+when we retrieve the users attempted credentials from OAuth2PasswordRequestForm, it's gonna store it in a field not called email but username we therefore should compare  the models.User.email to user_credentials.username (which happens to be the email) because it returns two things( username= , password= )
+
+When it comes to testing in postman we no longer send the credentials in the body, raw, we do it in the body,form data (pass in the key(username, password) and the values)
+we logged in a user by sending a request to the login endpoint by providing a username and password and our API will then return an access token which the user can then use to retrieve data from our API, so any time he needs to access an endpoint or path operation that requires a user to be logged in he'll just send the jwt token and the payload and then our API has to validate the token
+
+# VERIFY THE TOKEN IS STILL VALID AND HAS NOT EXPIRED
+we are going to define a schema for the token
+then create the verify token and get user function
+
+what happens is any time we have a specific endpoint that should be protected (user needs to be logged in to use it) i.e you need to be logged in to create a post; we add in an extra dependency into the path operation function (.., get_current_user; stored in a user_id variable which will return an int and then pass in a dependency)
+all this is saying is that this function is now gonna be a dependency, this is what forces the users to have to be logged in before they can actually create a post
+the get_current_user function calls the verify_access_token and passing in the token which comes from the user, we gonna return the id which then gets returned by the get_current_user function and then in our post.py in our function we return the id and store it in a variable called  user_id and then we can access the user id by printing it 
+
+You now cant create a post without authentication
+to get authentication go to the login route and get the access token
+go to create post > headers
+create a header; Authorization is gonna be the key, and then the column is gonna be the Bearer space then paste in the token
+or go to authoration then type in Bearer and paste in the token on the right 
+Now that we've protected our create_post route let's go ahead and do this with other routes;copying the dependency for get_current_user
+
+This is gonna add a dependency which is gonna be that function that we created called get_current_user; any time anyone wants to access a resource that requires them to be logged in we except that they provide an access token
+
+# if you want each of your path operations to fetch the user themselves they have th id from the get_current_user, though we can automatically do it under get_current_user;
+we get the token data back (id), we need access to our database so that we can fetch the user
+within the function we can pass in the dependency  so that we can get access to the db object
+
+NAVIGATING THROUGH POSTMAN
+create environment variables to avoid typing in the url
+We can no longer just create posts bec of authentication, we have to copy access tokens to endpoints
+we can do it through an automated fashion;
+go to the login user endpoint and hit send to get a new acces_token
+Through code we want postman to automatically set an environment variable;
+go to tests and put in the code to set environment variables;  pm.environment.set("variable_key", "variable_value");
+Set the variable_key as JWT and the value as the access token
+so how do we retrieve the access token from the login endpoint response; pm.environment.set("JWT", pm.response.json().access_token);
+click send, the code will run and create a variable called access_token
+Under create post instead of hardcoding we refernce the JWT variable; {{JWT}} - > in authorization
+Any time we login a user it's going to automatically update
+
+RELATIONSHIPS
+Relationship between users and posts;
+create an extra column in our post table(User_id) and set up a special Foreign Key ( a foreign key is how we tell sql that a column(User_id) is connected to another table)
+We specify the table that it should be connected to and what specific column it should use from that table;
+Foreign Key, Table Users(id)
+This is what is reffered to as a One to Many Relationship (one user can create as many posts as they want however a post can only be associated with one user)
+In postgres;
+add anew column to posts (user_id),make sure the data type matches the one in id from users table
+go from columns to constraints to set up our foreign key constraints
+under constraints go under foreign key 
+hit the plus sign and give the foreign key a name (posts_user_fkey)
+to set the logic of the FK click the edit  and go under columns to set up the relationship
+provide the name of the local column (the column in our posts table)
+its going to reference what table; the users table (public.users)
+what column from the users table is it gonna reference; the id column of the user table
+click add
+Go under actions to set the on delete
+
+SELECT * FROM posts WHERE user_id=1;
+
+set it though code in sqlalchemy;
+create owner_id column, pass in Integer and Foreignkey()
+pass in the exact table(reference the table name and not class name) and column that we wanna reference - users.id
+
+There's an error when creating a post bec in the request schema we did not pass in the owner id;
+we have to provide who the owner id is for any new post, we not gonna pass th owner_id in the body;whoever is logged in and creating the post should automatically be the owner
+add the current_user.id into the new_post object in the create post endpoint
+
+Rn if your logged in you can be able to delete any post
+# Making sure that a user can only delete their own post  
+add an if statement about the owner_id and current_user.id 
+
+We have to be logged in to view posts, (if you want to return only the users posts)
+On the frontend  we wanna pass the users details instead of the owner_id;
+For all the posts that we retrieve we would have to then send a second query to retrieve info for user with the given id
+we can set it up in sqlalchemy so that it automatically does this for us
+go t models and set up a relationship, it isn't a Foreign Key (does nothing in the database whatsoever), it tells sqlalchemy to automatically fetch some piece of info based off the relationship
+we'll create an owner and use relationship to return the class of another model(User)
+This will create another property for our post so that when we retrieve a post it's going to return an owner, it's going to figure out the relationship to User (it will fetch the user based off the owner_id and return that for us)
+
+# QUERY PARAMETERS
+Are optional key value pairs that appers to the right of the question mark, they allow us to filter the results of a request (maybe we want posts created in the last two hours);
+go to post router > path operation where we are retrieving all posts. We want to let the user to be able to filter down on the posts that they want to see
+Allow them to specify how many posts they want to retrieve all together
+To allow a query parameter, go into our path operation function and just pass in another argument (limit: int = 10 (default value))
+To send a query parameter, type in a question mark then grab the name of the query parameter which is limit
+Set up our query so that it takes into account the limit
+Send another query parameter called skip to specify how many we wanna skip
+if you wanna be able to send more than one query parameter; posts?limit=2&skip=2
+Set up a search functionality(based off the title) as the last query parameter;
+{{URL}}posts?limit=2&skip=0&search=SECRET
+
+#How to use spaces in search query; say you wanna search for "keep secret" 
+use percent which means space in your url
+{{URL}}posts?limit=2&skip=0&search=Keep%S
+
+# HIDING OUR CREDENTIALS
+We should not hard code our db info into our code;
+we are exposing our username and passwd,
+we've set the url to go to our development postgres instance which is running on our local machine, when we deploy this to production our postgres server is not going to be running on this machine, it could be on a completely diff system, we would need a way for the code to automatically update and a production environment to point to the actual production postgres db instead of using the one that is hard coded in here (e.g under our oauth2 we have our secret key hard coded, this is sth we dont expose and we need it updated between our development and production environment because they may not be the same on both)
+We use environment variables ( a variable that you configure on your computer(any application that is running on that comp will be able t access it))
+#### {py -3 models.py}  running in terminal
+
+# SETTING ENVIRONMENT VARIABLES IN LINUX
+creating an environment variable in linux;   export MY_DB_URL="localhost:5432"
+list of all env variables;   printenv
+how to acces a specific variable;   echo $MY_DB_URL
+
+With any project there's going to be a certain number of env variables;
+what would be good is to perform some sort of validation to ensure that all of the right environment variables have been set for your application to actually run properly
+when you read an env variable it's always going to come out as a string meaning you have to do all of the validation in code;
+from pydantic library import BaseSettings
+just like with any other pydantic model we can set up a class Settings
+In there we can provide a list of all the env variables that we need setprint(settings.secret_key) (and even assign default values)
+By setting it that way it's going to automatically perform all of the validation for us to ensure all of this have been set
+create a variable called settings = Settings() - creating an instance of the settings class
+we can now access those properties from settings; print(settings.secret_key)
+If there's no default secret_key, it's going to check my system env variables to see if there's sth called secret_key, if there's none it throws an error
+This helps to identify which environment variable is missing incase there are alot of them
+for all of the settings and env variables create a separate file; config.py and move all of that code inti that file and in main.py import the instance of the class that we created(settings)
+
+Now figure out what env variables we wanna use;
+ # the port is set to a string bec if we look at our db connection it goes into a url
+ Within our FastAPi directory create a new .env file which will contain all of our environment variables.
+ In production we are not gonna use it, in production we are gonna set it on our machine but in development it's okay to set everything there
+ We generally want to capitalize env variables but pydantic looks at everything from a case insensitive perspective
+ We didn't provide default values in our config
+ We now have to tell pydantic to import variables from our .env file
+ Inside the class ; (class Config:)
+ replace the credentials with the variables in the .env file
+ we have succesfully migrated all of our code to using environment variables. When we move to production we can just on the machine set all of these values that we have inside our config.py and it's going to automatically import it and update those values wherever wwe reference them
+
+ #VOTING/LIKE SYSTEM REQUIREMENTS
+ Users should be able to like a post
+ Should only be able to like a post once
+ Retrieving posts should also fetch the total number of likes
+ We should create a table for likes with a column referencing post id and another referncing id of user who liked the post
+
+ Composite keys - primary key that spans multiple columns (it does not care if there's duplicates in one column, it does not care if there's duplicates in the other column, all it cares is if both columns same in two different rows) - there should be a unique combination
+ since PK must be unique, this will ensure no user can like a post twice
+
+ Creating a likes table in pgAdmin;
+ go under table, create a new table and call it likes
+ Under columns add a columns; post_id(references id of specific post), user_id - select primary key for both (that's gonna create that composite key)
+ set up the foreign keys as well; those two are gonna reference other tables (for post_id go to constraints > foreign key)
+ Drop the table
+ Define the table in sqlalchemy
+
+ Setting up a vote route;
+ path - "/vote".
+ user_id will be extracted from JWT token.
+ Body will contain post_id and like direction (unlike or like).
+ vote direction of one means we are liking, 0 means otherwise.
+ In our routers folder create vote.py (don't forget to wire it up in main.py)
+
+ set up a decorator (post operation bec we have to send some info to the server)
+Def a function (like), since we expect the user to provide some data in the body it usually means we want to define a schema to ensure they send us the exact info
+schema for our liking; create a class called vote > first field should be a post id of type int > direction(integer as well - 0 or 1)  - we should validate to ensure it's only zero or one (import conint from pydantic automatically and pass in less than or equal to 1)
+
+JOINING INFO FROM TWO TABLES
+SELECT * FROM posts LEFT JOIN  users ON posts.owner_id=users.id;
+SELECT title,content, email FROM posts LEFT JOIN  users ON posts.owner_id=users.id;
+SELECT posts.id, email FROM posts LEFT JOIN  users ON posts.owner_id=users.id;
+SELECT posts.*, email FROM posts LEFT JOIN  users ON posts.owner_id=users.id;
+We're dealing with two tables, the first table referenced(posts) will be on the left while the second will be on the right
+It compares the values between the two columns that we have selected(posts.owner_id=users.id), if the values match the LEFT JOIN creates a new row that contains the columns of both tables. If they dont match the user info will be set to null
+
+SELECT posts.*, email FROM posts RIGHT JOIN  users ON posts.owner_id=users.id;
+LEFT JOIN will show you instances where something that exists in the left table but doesn't exist in the right table,RIGHT JOIN does otherwise.
+
+Getting number of posts by each user;
+SELECT users.id, COUNT(*) FROM posts LEFT JOIN users ON posts.owner_id=users.id GROUP BY users.id; - will list only those with posts
+SELECT users.id, COUNT(*) FROM posts RIGHT JOIN users ON posts.owner_id=users.id GROUP BY users.id; - will list also those without posts but counts null entries
+SELECT users.id, COUNT(posts.id) FROM posts LEFT JOIN users ON posts.owner_id=users.id GROUP BY users.id; - wont count columns that have a null value (accurate)
+SELECT users.id,users.email COUNT(posts.id) as user_post_count FROM posts LEFT JOIN users ON posts.owner_id=users.id GROUP BY users.id; 
+
+WORKING WITH OUR POSTS TABLE AND OUR LIKES TABLE
+SELECT * FROM posts LEFT JOIN likes ON posts.id=likes.post_id;
+SELECT * FROM posts RIGHT JOIN likes ON posts.id=likes.post_id;
+
+TOTAL number of likes for each post (counts the votes per post);
+SELECT posts.id, COUNT(*) FROM posts LEFT JOIN likes ON posts.id=likes.post_id GROUP BY posts.id; - everuthing else without two posts has a value of one which is not correct(it counts null values as 1). to correct this(grab any column that is null and pass it in COUNT);
+SELECT posts.id, COUNT(likes.post_id) FROM posts LEFT JOIN likes ON posts.id=likes.post_id GROUP BY posts.id;
+SELECT posts.*, COUNT(likes.post_id) as likes FROM posts LEFT JOIN likes ON posts.id=likes.post_id GROUP BY posts.id;
+
+Querying for an individual post to get all the info + the total number of likes;
+SELECT posts.*, COUNT(likes.post_id) as likes FROM posts LEFT JOIN likes ON posts.id=likes.post_id WHERE posts.id=1 GROUP BY posts.id ;
+
+PERFORMING JOINS USING SQLALCHEMY
+Retrieving a post with number of likes using sqlalchemy
+When we retrieve a post FastAPI should send the number of likes as a property;
+posts router > get_posts path operation
+create a results variable 
+results = db.query(models.Post) #selscts every colum and then renames it accordingly, it gets that from the posts table. It's getting every single post
+next step is to perform a join and specify (the table we wanna join, column that we perform a join on) - by default it's going to be a left inner join
+results = db.query(models.Post).join(models.Like, models.like.post_id == models.Post.id)
+We've been ignoring the keyword so by deafult it's been taking the OUTER but sqlalchemy has INNER as it's default. We want an OUTER though
+results = db.query(models.Post).join(models.Like, models.Like.post_id == models.Post.id, isouter=True)
+Next thing we have to do is to group by posts.id the perform the count on Likes.posts_id; group_by(specify the specific columns)
+results = db.query(models.Post).join(models.Like, models.Like.post_id == models.Post.id, isouter=True).group_by(models.Post.id)
+
+Get the COUNT
+import a function; from sqlalchemy import func (gives us access to functions like count)
+results = db.query(models.Post, FUNC.COUNT(MODELS.LIKE.POST_ID)).join(models.Like, models.Like.post_id == models.Post.id, isouter=True).group_by(models.Post.id)
+When you print results it's named as count 1, we wanna change that to sth we will understand; total_likes
+results = db.query(models.Post, FUNC.COUNT(MODELS.LIKE.POST_ID).LABEL("TOTAL_LIKES")).join(models.Like, models.Like.post_id == models.Post.id, isouter=True).group_by(models.Post.id)
+perform the query by adding .all() and then return the results
+We get errors( no title, no content, no time_posted...) - these are all pydantic validations. It's happening bec we used the response model of schemas.Post
+If we go scemas > Post class - there's values it expects and none of them have been set
+Remove the response model
+This is what it returns under results  [{{URL}}posts] ;
+[
+    {
+        "Post": {
+            "title": "Life Lesson 4",
+            "published": true,
+            "owner_id": 2,
+            "content": "Sing in the SHOWER",
+            "id": 4,
+            "time_posted": "2021-11-25T10:30:16.729899+03:00"
+        },
+        "total_likes": 0
+    }
+]
+
+What it returns under post;
+[
+    {
+        "published": true,
+        "title": "Life Lesson 10",
+        "owner_id": 2,
+        "id": 10,
+        "content": "Keep it SIMPLE",
+        "time_posted": "2021-11-25T12:44:55.626170+03:00"
+    }
+]
+This is what pydantic expects, it expects to get an object with a field of published,title.... however after our join something odd happens, we have a field called Post and that breaks everything bec it doesn't expect the id and the published and the owner to be under that dict. 
+
+To fix this we go to schemas and create a new schema;   # Response - return results
+Try to match the dict as close as possible
+class PostResults(BaseModel):
+    Post: Post  #Post of type Post(refernce # Response - return posts) - all those fields will be under a field named Post 
+    total_likes: int
+
+Go to posts.py and refernce PostResults;
+[
+    {
+        "Post": {
+            "title": "Life Lesson 4",
+            "content": "Sing in the SHOWER",
+            "published": true,
+            "id": 4,
+            "time_posted": "2021-11-25T10:30:16.729899+03:00",
+            "owner": {
+                "id": 2,
+                "email": "allie@gmail.com",
+                "time_created": "2021-11-22T23:29:24.209381+03:00"
+            }
+        },
+        "total_likes": 0
+    }
+]
+
+
+Go ahead and add our filters back in; [ {{URL}}posts?limit=2&skip=0&search=Keep%SI ]
+
+results = db.query(models.Post, func.count(models.Like.post_id).label("total_likes")).join(models.Like, models.Like.post_id == models.Post.id, isouter=True).group_by(models.Post.id).filter(models.Post.content.contains(search)).limit(limit).offset(skip).all()
+
+update the get specific post to get the vote count also
+
+
+DOING MIGRATIONS IN SQLALCHEMY
+When it comes to building out the table or the database schema, sqlalchemy has a little but of limitations (it doesn't allow us to modufy tables, create extra columns, add FK constraints) that's bec when we define this models sqlalchemy checks to see if the specific table name already exists, if it does it's not gonna touch it
+Alembic(database migration tool) fixes this - it's able to allow us to create increamental changes to our database and actually track them
+
+Developers can track changes to code and rollback code easily with GIT. We can do the same for databases and models/tables. Database migrations allow us to incrementally track changes to database schema and rollback changes to any point in time
+We will use Alembic to make changes. It can also automatically pull database models from sqlalchemy and generate the proper tables 
+
+install the library; pip install alembic  - gives access to the alembic command
+alembic --help
+Drop all the tables
+alembic init --help
+We have to initialize alembic; alembic init {directory name - alembic}  - it will create an alembic directory for us - also creates alembic.ini file
+go to alembic > env.py file
+
+To the file add;
+Bec alembic works with sqlalchemy and the models that we build with sqlalchemy, we need to make sure it has access to our Base object in models.py - it has to be from models(which is technically importing from database) and not database, by doing it from models it will allow alembic to read all of the models(doing it directly from database will not work) (import Base object into env.py) -- from ORM.models import Base (kinda gives us access to all of those sqlalchemy models)
+For target_metadata(target_metadata = None) replace None with Base and grab metadata (Base.metadata)
+
+Go to alembic.ini  ( Please edit configuration/connection/logging settings in '/home/mark/dev/FastAPI/alembic.ini') ;
+we have to pass one value (the sqlalchemy url - what's the url to access our postgres db) 
+sqlalchemy.url = driver://user:pass@localhost/dbname
+replace with;
+sqlalchemy.url = postgresql+{whatever driver you are using}://user:pass@localhost/dbname
+If you don't provide the driver it uses whatever the default driver is. We are using {psycopg2}- you dont actually need to provide it but you can
+Replace user, password and dbname with actual values
+You can provide the port after local host if you want to;  sqlalchemy.url = postgresql+psycopg2://livramento:kavayaMam@localhost:5432/SlowApi
+At this point alembic is set up and ready to run however we should'nt hard code our data in our code (If we move into our production serverit's not gonna work properly bec they are not gonna use this credentials or this IP)
+we then should overwrite those values with whatever is stored in our env file;
+
+Under the config variable in our env.py file we should set a new option ;
+config.set_main_option("value we are gonna override-sqlalchemy url in alembic.ini", "pass in our string")
+config.set_main_option("sqlalchemy.urli", "postgresql+psycopg2://livramento:kavayaMam@localhost:5432/SlowApi")
+cut the string in alembic.ini (leave it blank; sqlalchemy.url =)
+
+Just like in the database.py use the settings object in the env file; from ORM.config import settings
+override the credentials
+
+When we want to make a change to our database we create a revision. The revision is what really tracks all the changes that we make on a step by step basis.
+alembic revision --help ( theres a - m that allows us to add a message like in git)
+
+alembic revision -m "create posts table"
+It willl create a file under the versions. The versions folder under the alembic folder is going to contain all of our changes
+The file created has two functions in revision identifiers
+The upgrade function when we run the upgrade, it runs the commands for making the changes that we wanna do (in this case we wanna create a post able table; we put all the logic for creating a post table within this function)
+If we ever wanna rollback we have to put all the logic in the downgrade function to handle removing the table.
+Upgrade handles the changes and the downgrade handles rolling it back. It's all manual; you have to define how to do all of that.
+
+setting up the upgrade function and configuring all the necessary columns for our post table
+access the op object from alembic;
+op.create_table("name of table", define our columns -> sa.colum(...))
+Logic for undoing this changes;
+op.drop_table("name of table")
+
+To see what the current revision is; alembic current
+alembic upgrade --help;
+We have to provide a revision number to tell alembic what version of our db do we wanna go to.
+To run the upgrade we provided in the function we should provide the revision number.
+alembic upgrade fa80de2a2383 - it creates the post table and alembic_version table (what alembic uses to keep track of all the revisions) - don't delete
+
+say we wanna add the content column;
+alembic revision -m "add content column to post table"  - it's gonna create a brand new revision.
+Once again we have to put in the logic for upgrading and dongrading
+now that we have more than one revision  there's also a down_revision in the newly created revision.
+Put in the logic for adding a brand new column for content; op.add_column..
+every time you set up an upgrade function you have to set up a downgrade table(table, actual column)
+alembic current  (current revision) - where we created our post table
+alembic heads - [61b660fb4e8c (head)] (Latest revision) - new one we just created.
+alembic upgrade head/{revision number} -> Running upgrade fa80de2a2383 -> 61b660fb4e8c, add content column to post table
+
+How to roll back;
+alembic downgrade fa80de2a2383 - rolling back to revision
+alembic downgrade -1 (goes back to one revision earlier) - removes content column
+
+
+Creating a users table .
+set up a new revision; alembic revision -m "add user table"
+we get a new revision; set up upgrade and downgrade
+alembic current.
+alembic history - see history of our revision 
+alembic heads.
+alembic upgrade head
+alembic upgrade +1
+
+After adding the user functionality;implement the relationship between users and posts- set up the foreign key that links user table to post table;
+alembic revision -m "add foreign key to post table";
+First we have to add a column to our post table called owner_id
+We've created the column now we have to set the link between the two tables (Foreign Key constraint)
+ op.create_foreign_key("{name of fk}",{source table of the fk-fk for posts table}, reference the remote table(referent_table)-users table, specify the local column that we are gonna be using-column in the posts table, the remote column in the users table, ondelete)
+ set up the downgrade. - undo those changes
+ alembic current
+ alembic heads.
+ alembic upgrade head
+ Check in postgres to confirm the foreign key.
+
+ Create a new revision to add all the columns in post table
+ alembic revision -m "add last few columns to posts table"
+ alembic upgrade +1
+
+Generating the likes tables.
+We are not going to manually create it, we make use of the auto generate feature - using alembic to figure out what exactly is missing from our database, it takes a look at all of our models, it's going to import all of our sqlalchemy models and based off of the columns that we have set here it's going to figure out what our db is supposed to look like.
+Regardless of what our db is in it's current state, we don't need to delete and build from scratch, it will update if sth is missing and make changes (it will figure out the diff between sqlalchemy models and our postgres db) - look at the time created changes on nullable field
+
+alembic revision --help
+alembic revision --autogenerate -m "auto-like"
+alembic upgrade head
+
+Adding a phone number column on user table;
+alembic revision --autogenerate -m "add phone number"
+alembic upgrade head - it's gonna push out those changes
+
+IN MAIN.PY;
+Since we have alembic,we no longer need this command in our main.py file- it's the command that told sqlalchemy to run the create statement so that it generated all of the tables when it first stated up
+models.Base.metadata.create_all(bind=engine)
+keeping it in will not break anything, but if it does create the tables for you then your first alembic migration isn't gonna have to do anything bec everything is already there
+
+we've been testing our API by sending requests from postman (when you use postman you are actually sending a request from your own computer). Your API though can get requests from diff types of devices;computer,server,mobile devices and more importantly from a web browser using js fetch API. 
+When a web browser sends requests using js fetch API there's gonna be a slightly different behaviour that we have to account for which we cant take into consideration when using postman bec postman isn't a web browser;
+Go to dev tools on google.com;
+fetch("http://localhost:8000").then(res => res.json()).then(console.log)
+It should print out the contents of whatever we get back from the server but we get an error; access has been blocked by  CORS POLICY
+
+CORS POLICY - cross origin resource sharing
+allows you to make requests from a web browser on one domain to a server on a different domain
+By default our API only allows web browsers running on the same domain as our server to make requests to it
+
+To fix this (if you wanna allow people from other domains to talk to your API);
+In main.py -> 
+from fastapi.middleware.cors import CORSMiddleware (more in docs; CORS)
+app.add_middleware(CORSMiddleware..., can allow specific requests and heaers too) . middleware is a term used in most web frameworks bec it's basically a function that runs before every request
+If someone sends a request to our app before it goes thru the routers it goes through the middleware then the middleware can perform some sort of operation
+
+We have to specify the origins that we wanna allow (what domains should be able to talk to our API) - create a list called origins of all domains that can talk to our API 
+If you want to allow all; "*" - every single domain
+
+# SETTING UP GIT FOR OUR PROJECT - so that we can start tracking our changes as well as set up a remote repo to store all of our code
+Create a .gitignore file;
+venv - we have no idea if someone cloning our repo is going to be using a virtualenv
+create for them a requirements.txt file to know the packages they need installed; pip freeze > requirements.txt
+for anyone that clons our repo all they have to do to install all of them; pip install -r requirements.txt
+
+
+Setting up a remote repository so that we can store all of our code on github.
+git init  - it's going to initialize git
+
+

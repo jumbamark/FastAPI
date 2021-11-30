@@ -560,3 +560,63 @@ git push heroku main
 Any timeyour application is not working on heroku;
 heroku logs --help
 heroku logs -t
+There's an issue with settings which is the pydantic model that we've set up for achieving our env var. Theres validation errors for our settings model; no database_name,port..there's an issue with our env variables. It makes sense bec in development we use our .env file to provide all of the environment variables into that settings model and we pass that by specifying the env file.
+We did not check our env file into git. We have to add those env variables either through the cpmmand line
+Before we can do that we need to get a postgres db;
+Heroku provides us with a free postgres instance that we can have access to -- postgres is one of their many add ons
+heroku addons
+Create a postgres instance;
+heroku addons:create heroku-postgresql:hobby-dev --help
+heroku addons:create heroku-postgresql:hobby-dev
+Heroku is going to create our postgres instance - monitor in dashboard
+click on it > settings > db credentials > view- there's an ip address, db name (they give us a fixed name),user, port
+Go back to our application > settings > Config vars (it's where we actually provide env variables to our heroku instance)
+there should be one that's added by deafult (URL)
+We could go into our app and update our codeso that in the db.py file we could provide one specific url{settings.database_url} but NO
+Instead of using the default env variable we are going to break it into multiple different environment variables;
+Go into config.py and look at the env variables we need set
+database_hostname
+database_port
+database_username
+database_password
+
+Now we set up those variables, how do we restart our heroku instance/dyno;
+heroku apps --help (no access to restart)
+heroku ps --help
+heroku ps:restart
+heroku logs -t
+heroku apps:info fastapi-mark
+
+The app is up and working but trying to log in or creating a user raises some issues (Internal server error);
+We deployed a brand new instance of postgres
+create a postgres instance(servers > create > server) in pgadmin and connect it to the one in heroku by provide the same exact connection info
+we have succesfully connected to our heroku postgres instance.
+You'll see a tone of different databases; we wont be able to access most of these. The reson heroku is able to provide this for free is that they have one instance of postgres and then they give you one database within that instance that only you can access.
+our db  is d131h23r4n5576
+go to schemas > public > tables and you'll find there is nothing in there
+That's really the reason why our application is not working; we have a brand new postgres instance but we havent actually set up our schema or tables.
+This is where alembic comes into play once again. Since we already have all of our revisions set up, getting our production database to match our development database will be as simple as running one command
+
+In our development environment we use alembic to manage our db schema (alembic was responsible for creating all of those tables, since we have all the revision files we can essentially track all the changes that we make)
+to get our development db upto date we run;
+alembic upgrade head - goes to latest revision and make sure our postgres instance matched whatever that is
+In our production database,we'll run the same on our heroku instance
+bec we've tracked alll the files to git then our heroku instance has access to all of our revisions.
+So when we run alembic,it can keep track of all of those changes as well in our production server
+We never run alembic revision on our production server
+
+How do we run a command in our heroku instance;
+heroku run <specific command that we wanna run>
+heroku run "alembic upgrade head"
+Not only did it get our postgres instance upto the latest revision, it has all of the other increamental steps added in as well. We can roll back to any of them just like we did in development.
+Go back to pgadmin and refresh tables. They are all there now
+
+heroku ps:restart
+
+HOW DO WE PUSH OUT CHANGES TO OUR APPLICATION
+Make whateve change
+Push out those changes to the git repo first;
+git add .
+git commit -m "modified steps.txt"
+git push origin main
+git push heroku main

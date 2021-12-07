@@ -509,10 +509,12 @@ If someone sends a request to our app before it goes thru the routers it goes th
 We have to specify the origins that we wanna allow (what domains should be able to talk to our API) - create a list called origins of all domains that can talk to our API 
 If you want to allow all; "*" - every single domain
 
+
 # SETTING UP GIT FOR OUR PROJECT - so that we can start tracking our changes as well as set up a remote repo to store all of our code
 Create a .gitignore file;
 venv - we have no idea if someone cloning our repo is going to be using a virtualenv
 create for them a requirements.txt file to know the packages they need installed; pip freeze > requirements.txt
+cat requirements.txt - tells what version of every single dependency we need to install
 for anyone that clons our repo all they have to do to install all of them; pip install -r requirements.txt
 
 GIT
@@ -620,3 +622,124 @@ git add .
 git commit -m "modified steps.txt"
 git push origin main
 git push heroku main
+
+
+DEPLOYING OUR APPLICATION ON AN UBUNTU SERVER
+You can host your ubuntu serverand run it on any of the major cloud proviiders;AWS, Azure, Digital Ocean, local machine, rasberry pi
+Digital ocean;
+Get started with a droplet > Ubuntu > CPU options: Regular intel with SSD > select your data center > host name > Create droplet and digital Ocean will ceate our ubuntu vm
+You shoul see a public IP; IP we'll use to connect to our virtual machine
+Terminal;
+ssh <username that we wanna connect to the device>; ssh root@<ip address/ip> ; yes
+password - passwd provided when we created the virtaul machine
+we are now succesfully logged in to our ubuntu virtual machine
+Any time you get a brand new ubuntu virtual machine we wanna update all of the installed packages
+install pip > use pip to install virtualenv (sudo pip3 install virtualenv) 
+install postgres
+psql -U postgres
+Peer authentication - default config for postgres (takes user that's logged in to the ubuntu machine and it tries to login as that user) failed
+Changing postgres password for a certain use;
+\password mark
+
+cd /etc/postgresql/14/main
+ls > open up postgresql conf > sudo vi postgresql.conf
+Under CONNECTIONS AND AUTHENTICATIONS Take a look at the default config ; under listen addresses it;s only going to allow localhost to connect to ourdatabase (only when logged in into this Ubuntu VM can we the log in to the database). You wanna change this but it's not necesssary
+listen_addresses = "*"
+
+Getting rid of peer authentication;
+next file: sudo vi pg_hba.conf;
+change from peer to md5
+# IPv4 local connections:
+Unblock remote connections from local host (127.0.0.1/32) to any ip address (0.0.0/0)- means any IP address
+Do the same for IPv6; change to  ::/0 - syntax in IPv6 for saying any IP address
+save changes: (:wq)
+Till now we are logged in as the root user; we are going to create another user with root privileges;
+adduser jumba_mark
+su - jumba_mark  (This user by default does not have root access); usermode -aG sudo jumba_mark
+make a folder to store our app > mkdir app > cd app > virtualenv venv > ls -la
+create  another folder called src (will contain all of our source code) > copy all of our code onto the VM
+it's already stored on github > go to the url for our repo
+
+
+CLONING FROM GIT;
+git clone https://github.com/jumbamark/FastAPI.git . (hitting space dot will install in this current directory, it's not going to create another directory that's the name of my repo)
+cat requirements.txt - tells what version of every single dependency we need to install
+pip install -r requirements.txt
+
+
+Setting env variables on linux machine;
+cd ~
+create a file; touch .env 
+open it up ; vi .env
+provide a list of all the environment variables; export DATABASE_NAME = mark
+source .env  - sets all the env variables
+printenv
+cat .env
+
+
+Method  2 ; copy all the env variables and save them in .env file without the word export before them
+set -o allexport; source /home/mark/.env; set +o allexport
+printenv
+
+
+If we reboot (sudo reboot) we lose all of our variables that we set (we need to get them to persist the reboot);
+cd ~
+la -la
+go into .profile file > vi .profile > Go to bottom of file and paste; set -o allexport; source /home/mark/.env; set +o allexport > :wq
+
+
+cd src > alembic upgrade head - going to set up our database and it's going to update it to the latest revision
+uvicorn --host 0.0.0.0 app.main.app --help
+uvicorn --host 0.0.0.0 app.main.app  (listening on any ip that this machine is potentially running)
+right now if this program crashes or if we reboot it doesn't actually restart automatically
+we'll use a process manager: gunicorn > pip install gunicorn
+gunicorn --help (set up the number of workers- we'll set up 4 by default)
+gunicorn -w 4 -k uvicorn .workers.UvicornWorker app.main:app --bind 0.0.0.0:8000
+
+We want it to run in the background (not terminal) and automatically start up on boot
+We are going to create our own servers which start the application for us.
+cd /etc/systemd/system/  > ls to view all the services installed on our machine
+We are gonna create a brand new one (gunicorn_service file,- hour 11:50)
+Create a service in system; sudo vi api.service and paste in all the contents of gunicorn.service.
+systemctl status FastAPI  - should give us the status of our service
+The service created does not have access to users env variables > pass in another field in gunicorn_service (Environment file)
+systemctl daemon-reload
+systemctl restart FastAPI
+systemctl status FastAPI 
+
+Automatically start upon a reboot; sudo systemctl enable FastAPI
+
+NGINX -intermediary web server-running on our ubuntu vm,will receive the original request and act as a proxy
+High performance webserver that can act as a proxy. Can handle SSl
+HTTPS Request --> NGINX --> GUNICORN
+ Setting up nginx; sudo apt install nginx -y
+ systemctl start nginx (default config file - server block)
+ ls > cat default
+ open up the default file and replace the location with what we have in nginx file
+
+
+Right now our browser is saying not secure - we are using http and not https, we need to set this up for https
+you need a domain name
+Point domain name to digital ocean
+Under the name service section > custom DNS > point it to the DNS service of digital ocean 
+In digital ocean > dashboard > manage DNS in digital ocean > enter your domain
+create an A record and CNAME also
+
+We can set up ssl- we can handle secure https traffic
+search for certbot
+Make sure nginx has been set up to automatically start upon a reboot; systemctl stauts nginx > systemctl enable nginx (if set to disabled)
+
+
+Set up a firewall on our machine - for basic security purposes (wanna make sure we only open ports that we're gonna be using)
+Use the built in firewall called ufw > sudo ufw status
+Set up a bunch of rules > tell the firewall what kind of traffic should we allow to our machine > sudo ufw allow http/https/ssh/5432
+sudo ufw enable
+sudo ufw status
+
+
+
+
+
+
+
+

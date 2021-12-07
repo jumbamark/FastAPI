@@ -25,7 +25,7 @@ while True:
 
     try:
         connection = psycopg2.connect(host='localhost', database='mark',
-                                      user='mark', password='@Kezeji99', cursor_factory=RealDictCursor)
+                                      user='mark', password='Jumba99', cursor_factory=RealDictCursor)
         cursor = connection.cursor()  # use to execute sql statements
         print("Connection established")
         break  # if we succesfully connect to the database we break out of the while loop, if we fail it goes back into that loop

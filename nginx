@@ -1,0 +1,21 @@
+server {
+    listen 80 ;
+    listen [::]:80 ;
+
+    server_name _; #replace with specific domain name like jumbamark.com
+
+#this location block is what's going to allow nginx to act as a proxy
+    location / {
+        #any request that matches the root path or beyond is going to get proxied to localhost port 8000 which is what gunicorn is running on
+        proxy_pass https://localhost:8000; 
+        proxy_http_version 1.1;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $http_host;
+        proxy_set_header X-NginX-Proxy true;
+        proxy_redirect off;
+    } 
+
+}

@@ -34,4 +34,4 @@ app.include_router(like.router)
 # path operation/ route
 @app.get('/')
 def root():
-    return {"message": "Welcome to my API"}
+    return {"message": "Welcome to my API, here's to excellent stuff: bind mount works fine"}

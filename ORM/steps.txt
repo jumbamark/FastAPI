@@ -736,10 +736,87 @@ Set up a bunch of rules > tell the firewall what kind of traffic should we allow
 sudo ufw enable
 sudo ufw status
 
+aking changes;
+push to github then go to our application;
+cd FastAPI/app/src
+git pull
+pip install -r requirements.txt (if we had changed it)
+sudo systemctl restart api
 
 
+DOCKERIZING OUR APPLICATION;
+How to set up our FastAPI environment within our docker based environment
+How to set up a postgres database within docker;
+Install docker on your machine
+Create a Dockerfile; will have all of the steps necessary to create our own custom image
+copying everything at the end
+When docker runs,when we build images from an docker file it actually treats each one of the lines/steps as a layer of the image
+It caches the results of each step, when you cache the result if nothing changes we can just use the cached result
 
 
+DOCKER COMPOSE - use to automatically spin up our containers with the desired configuration
+We wanna use docker compose instead of docker run;
+docker compose does the same thing as running docker commands on the CLI, we just provide all the instructions on a file so that we don't have to remember all the long commands with extra flags
+Provide a set of instructions in a file called docker-compose.yml (It's a yamo file-markup language)
+docker-compose --help
+Run the file: docker-compose up --help
+docker-compose up -d (we are rebuilding our image because we specified build in docker-compose, then it's going to start our container, it has the number one because there is one instance but if i told it to spin up 4 then we'd have 4)
+docker ps
+docker ps -a
+docker logs fastapi_api_1
+
+Pass in the env variables
+docker-compose down (to tear everything down)
+docker-compose up -d   (It doesn't build the image this time-goes to docker image and looks for the image it would have created)
+
+SETTING UP OUR POSTGRES DATABASE
+Create a brand new service (another container) for running our postgres database
+figure out the ip address;
+
+Set up the database first using depends_on;
+docker-compose down
+docker-compose up -d 
+
+Docker container challenges from a development perspective;
+Make a change(in main.py) and realize it's not effective.
+docker ps
+We wanna see what the file system of FastAPI looks like;
+docker exec -it fastapi_api_1 bash (it's gonna enter into interactive mode,specify the container name then type in the word bash)
+We get a linux prompt;
+cd ORM
+cat main.py  (print out the content of main.py)
+
+The changes didn't get pushed out to the container;
+we make use of a special volume called bind mount - it allows us to sync a folder on our local machine with a folder in our container
+Define a volume under volumes
+docker-compose down
+docker-compose up -d
+Add --reload in the docker file/ overwrite it in docker-compose
 
 
+Create an account on docker hub; It's the docker equivalent of github
+We'll create aa repo so that we can actually store our images here and track changes over time
+docker image ls
+pushing it to docker; 
+docker push --help
+docker login
+docker push jumbamark/fastapi:tagname
+docker image tag --help
+docker image tag fastapi_api jumbamark/fastapi_api
+docker image ls
+docker image tag fastapi_api jumbamark/fastapi
+docker image ls
+docker push jumbamark/fastapi
 
+When we move to production,assuming we are using docker in production we can't use this docker compose file; the env variables will need to change and we can't hard code then, we wouldn't want the reload flag, no bind mount bec the code shouldn't  be changing in production, ports could be different. There are some differences in docker env (dev and prod) we nedd to account for that;
+create two docker compose file - for development and production
+docker-compose down
+Making changes to the docker-compose prod
+starting up docker will be different now
+docker-compose -f docker-compose-dev.yml up -d
+
+In a production environment you dont ever wanna buuild the image in prod env; when you done developing you push the brand new image to docker hub
+In prod you just pull this image from docker hub; remove the build from prod file and set it to image
+
+Stop your containers;
+docker-compose -f docker-compose-dev.yml down

@@ -1,6 +1,6 @@
 name: Build and Deploy Code
 
-on: [push, pull_requests] #run on push and pull requests for all branches
+on: [push, pull_request] #run on push and pull requests for all branches
 
 jobs:
   job1:

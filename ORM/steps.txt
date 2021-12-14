@@ -820,3 +820,228 @@ In prod you just pull this image from docker hub; remove the build from prod fil
 
 Stop your containers;
 docker-compose -f docker-compose-dev.yml down
+
+
+Currently whenever we make new changes we have no idea if those changes break functionality in our code;
+AUTOMATED TESTING LIBRARY
+library we are going to use: pytest
+pip install pytest 
+pytest  (type it in to run our tests)
+Create a test directory > create mytest.py
+Create a file(calculations.py) to create a function to test, our project has advanced for testing
+Testing - you ran the code with some test data, and you know what the result should be cause you created this data and make sure the result of the code matches with your expected results
+Within tests folder you nid to have __init__.py to make it a python paackage
+Test file should start with test_py or _test for it to be identified by pytest (auto discovery of files) or 
+pytest tests/test_calculations if you don't want to use auto discovery
+naming does matter(in test_calculations.py), it should start with test
+pytest --help
+pytest -v  (instead of having a dot it lists out the specific test that's running)
+pytest -v -s (s flag is for printing out statements-pytest does not print out any of your print statements by default)
+
+Create a few more dummy functions that we can use for testing before going into advanced testing
+Pytest provides some tools to minimize amount of repetitve code; fixtures-function that gets run before the specific test that you want
+
+Any time we throw an error we are automatically going to make the test fail
+For scenarios where we expect to receive an error we need to create a different test case
+In real code you wouldn't just throw generic python exception you gonna usually create your own exception classes; InsufficientFunds
+Benefit: for some reason our code raised another type of exception it would consider this test as failing
+
+
+TESTING OUR APPLICATION
+When it comes to fastapi it automatically provides us a test client 
+create test file for users > import from our app package(main file), import FastAPI instance so that we can test it
+
+Test the the simple route path > call it test_route > we're sending a get and the url: route path
+pytest -v -s tests/test_users.py
+
+
+Other flags that can be passed to the pytest command;
+pytest --disable warnings
+When you have multiple tests fail (you want it to stop when the first test fails) - pass in the x flag
+pytest --disable warnings -v -x
+
+tests to create a user - the only difference is that since we are now sending a request to create a user we have to send data in the body
+To confirm the test works, go to the database and you'll find the data passed in counts as a user
+ 
+ We are using our development database for our tests and that's not good,we need to create a separate db;
+ In db.py we've actually set up a dependency which returns the session local that alllows us to make queries using sqlalchemy
+ How to set up;
+ copy the contents of db.py intotest_users
+ replace get db with override_get_db
+ How exactly do we ovveride the db or any dependency --> fastapi docs (Testing Dependencies with Overrides, Testing a Database);
+ app.dependency_overrides[get_db] = override_get_db = in our functions any of our routes we've got Depends(get_db) we we ran this ovveride it's gonna slop it out with the function that we have under test_users with the  function we replaced which is just going to give a different section object which can point to another postgres database
+ create another database; fastapi_test and reference it in test_users
+ the db has no tables;go to main file and copy the engine that will tell sql alchemy to build all the tables, based off of the models. We could use alembic as well
+ Our test database is now set up, when we run our first test it will run "Base.metadata.create_all(bind=engine)" the which should create all of our tables for us 
+
+
+ pytest --disable-warnings -v tests\test_users.py -s
+
+
+The user is now set up, we have now gotten our test database set up so that we can no longer interfere with our development database. Your test database does not have to run on your local machine, you can run it anywhere; on a docker container, remote machine
+When we run the tests again it breaks bec the user already exists and we trying to get a new user with the same exact email
+Getting around this limitations; make use of fixtures- function that runs before your test runs
+Before our code runs we can create some tables and then after our code runs we can drop our tables
+Drop likes,users and posts in the tests db 
+pytest --disable-warnings -v tests/test_users.py -s
+It drops the tables after we are done
+Put drop tables at the top so that it starts with dropping tables - this way you"ll get to keep the tables after the func runs and it helps in troubleshooting (pass in the -x flag)
+
+We can choose to use alembic instead of sqlalchemy;
+from alembic import command
+
+
+We can configure a fixture to be dependent on another fixture (essentially pass one fixture into an argument of another fixture)
+We wanna have one fixture that returns our db object so if wanna ever manipulate data directly and another fixture that returns our clients
+this one returns our client;
+
+@pytest.fixture
+def client():
+    Base.metadata.drop_all(bind=engine)
+    # command.upgrade("head")
+    # we can run our code before we run our test
+    Base.metadata.create_all(bind=engine)
+    # command.downgrade("base")
+    yield TestClient(app)
+    # return TestClient(app)
+    # run our code after our test finishes
+    # Base.metadata.drop_all(bind=engine)
+
+But we want another that returns just a database object;
+call it session and move the logic of deleting and creating our tables in session, copy the section in the override functionality and paste it into session
+This session fixture is going to yield the db object
+pass the session fixture into client fixture
+Any time we go into one of our tests and pass in the client fixture as a dependency it's gonna call client which will call the session fixture before it runs
+Copy all the override func into client, remove the db variable and instead of yielding db we gonna yield session
+Do the override and then return a brand new test client that
+The benefit is that not only do we get access to the client, if we want to we can also get access to the db as well by passing in session in our test funcs and make queries; session.query(models.Post..). Now we have both access to the db object and client
+
+We can actually remove the ovveride that's not within the fixture and the create all cause we are doing it all within the fixtures now
+
+Our test users file is a little bit cluttered with all of this db info; move all of our db specific code to another file (database.py under our tests folder, including the fixtures as well)
+Import the client and session fixtures into test_users
+
+
+Set up the test for login - we dont nedd the trailing slash because there's no prefix,we don't send the data in the body (if you go to postman we do send it in the body but as form-data and not json). The field for email is actually called username
+There's an issue bec we get a brand new database every single test that we run (fixtures have two scopes and we are using the default one which runs before any test) .So the user won't be present for the thirs test which will make it fail. (pytest docs > fixtures > scope)
+We should change the scope from the default to module (will run once and be used by the tests in test_users modules) in db.py
+It still creates an issue bec the login test is there dependent on the create user test; it's bad practice to make tests be dependent on other tests
+Change back the scope to function which is the default value bec we want to load up a brand new db by dropping our tables and then creating new ones every single time we ran our tests. 
+To make our login user test independent of any other tests so it's not reliant on a specific order; before our login user test runs we want to actually go and define a function that will get called that will actually create a brand new user so that we can actually test the login in app
+Create a fixture that will create a test_user for us;
+def a test_user fixture (responsible for creating a test_user), it will make a call to our create user route. We need access to client or session object
+Define a dict with the data that I'm gonna use for my users
+Not only do we want to create a test user, we wanna actually return info about the user so that this login user will have the correct data to send when he tries to login
+Return nothing and pass in the test_user(into login user test) so that also runs
+Now the login user test is dependent on two different fixtures: the client and test_user
+Incorporate password into res.json so that the data returns the password (using the new_user varaible)
+Return new_user, so any time someone calls test_user or we have a test dependent on that, its gonna run the function and return the new_user
+Now that we have the new user you can pass in the details(in login user test) by referencing test_user
+
+
+Doing a little more validation for the login user route to make sure we got a token, the token is valid and do a few extra checks
+Just like we did with test create_user we can make use  of the pydantic model that we use for the response;
+we will have to validate the token using the logic from auth2.py; decode the token 
+
+Create a special file under our tet directory (conftest.py - special file that pytest uses.It allows us to define fixtures in here).Any fixtures you define in the file wil be automatically be accessible to any of our tests within the test package. It's package specific.
+take all of our database code and move it to conftest
+By doing so the session fixture as well as the client fixture will all be accessible to any test files within the test folder automatically.
+So we don't actually have to import anything
+Move test user to conftest as well
+ pytest -v --disable-warnings tests/test_users.py -s
+
+ Create a login test for incorrect details by deliberately putting in the wrong password
+ we also wanna test the wrong email as well, and wrong email and password; we can use parameterize; also set the password and eamil to None- the schema validation will fail because it expects a username and password. We should get a 422
+
+
+ Create a file for posts tests
+ There's a challenge because all of our post path operations require authentication 
+ HOW TO DEAL WITH AUTHENTICATION WHEN IT COMES TO TESTING
+ set up a fixture that automatically does this(login,get a token, make a request to posts) for us 
+ instead of making a request to our APi import the auth2 method for creating an access token so we can import it into our tests, then create our own token without having to use the entire API
+ go to conftest and create a new fixture that's be dependent on test_user
+ Usse create user from oauth2.py which requires data passed in as a dict
+
+ create another fixture that gives an authenticated client - if we want to deal with any path fixture that requires authentication we can call the authorized client instead of the regular client
+ Update the headers because we need to pass the token inside the headers (pass in a dictionary: spread out all the current headers and then add one more which is going to be the authorization)
+ It's basically taking the original client and then just adding the specific header that we get from the token fixture
+ Printing json to see the data gives you an empty array bec there's no test posts in our database. Like we did with the login user where we created a test_user before we gonna have to do this with our posts, we need to create a whole bunch of posts and then verify that we are able to retrieve them;
+ create a fixture that will create a few initial posts;
+ pass in test_user bec without a user you cannot create a user,session bec we need to work with the database
+ Use sqlalchemy(session) to add all posts to the database;
+  You can hard code in the posts or use map which has a function that you created,it will iterate through the lists and it's going to take each item in the list which is a dict and it converts it into models.Post
+  make get_all_posts relient on test_posts
+  Adding a function into the test to use the schema result
+  pytest -v tests/test_posts.py -s
+
+
+# deleting a post owned by someone else- more than one user, posts owned by multiple users
+create a second test user
+Add another post and assign in to user 2 then try deleting it when logged in as user 1
+
+Updating post - define dict with values that you wanna update
+SET UP A TEST FOR LIKES - create a test_likes.py file
+
+
+CI/CD PIPELINE
+When it comes to adding new features and making changes to our code we have to go through a very manual process before we can get those changes pushed out to our production environment
+What's good is setting up a CI/CD pipeline so that we can do all of this in an automated fashion
+Continous Integration - automated process to build, package and test applications
+Continous Delivery - Picks up where CI ends and automate delivery of applications (responsible for pushing out those changes to your production network)
+
+Current Manula process;
+make changes to code
+commit changes
+run tests - to verify that our changes didn't actually break any known functo=ionality to our code
+Build images  (docker images,if we happen to be running docker)
+Deploy
+
+Automated CI/CD pipeline;
+make changes to code
+commit changes
+When you commit changes to your code that's going to trigger our CI/CD pipeline to run(our CI phase starts at this point)
+CI phase;
+    pull our source code
+    Install dependencies
+    Run automated tests
+    Build images
+CD phase;
+    grabs latest code or new build image
+    update production
+
+Common CI/CD Tools - circleci, Travis Ci,github actions
+We will use Github Actions for our CI/CD pipeline. It's already integrated with our Github repo and it's hosted on Github so there's no need to install anything on our local machine
+
+CI/CD Tool
+It provides a runner - computer(VM) to run a bunch of commands we specify
+These commands are usually configured in yaml/json file or through GUI
+The diff commands we provide makeup all of the actions our pipeline will perform
+The pipeline will be triggered based off of some event (git push/merge)
+
+Steps;
+   actions/checkout@v2  (tells machine to pull our code-after we do a git push)
+   actions/setup-python2v2   (set up python 3.9)
+   python -m pip install --upgrade pip  (update)
+   pip install -r requirements.txt
+   pip install pytest
+   pytest (test with pytest)
+We giving this steps to our vm so that it can run automatically after a git push
+
+
+SETTING UP GITHUB ACTIONS  (github actions docs)
+In our main project directory create a .github/workflows folder
+Create a yamo file in workflows and give the workflow a name
+Define when should our pipeline trigger > pass in the on build and specify should it be a push or a pull_request or should it run for both (push,pull_request, [push,pull_request])
+You can specify the branches > go down level and on push define the branches;
+on:
+  push:
+    branches: ["main", "anotherbranch"]
+  pull:
+    branches:
+      - "test_branch"
+
+Any time we do a push to either one of these branches it's gonna run our code and any time we do a pull request to this specific branch it's going to run our code
+
+Once defining what's going to trigger our workflow we have to then create a job (set of steps executing on the same runner)
+name of job > operating system > list of steps (under steps give the name(description) and uses(exact command))- Go to Github> Marketplace > checkout
+You could specify the specific repo that you want to pull however github already knows what repo we're working on bec we do the git push and all of this is integrated together

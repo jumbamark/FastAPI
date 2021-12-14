@@ -1045,3 +1045,4 @@ Any time we do a push to either one of these branches it's gonna run our code an
 Once defining what's going to trigger our workflow we have to then create a job (set of steps executing on the same runner)
 name of job > operating system > list of steps (under steps give the name(description) and uses(exact command))- Go to Github> Marketplace > checkout
 You could specify the specific repo that you want to pull however github already knows what repo we're working on bec we do the git push and all of this is integrated together
+after pulling the github repo, set up python (Marketplace > Setup Python)

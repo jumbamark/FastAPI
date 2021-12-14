@@ -1067,3 +1067,19 @@ create a secret for both our username as well as docker hub access token;
 Go to settings and put it in the previous testing environment
 once you set it up,follow the steps to set it up in our yamo file
 profile > account settings > security > new access_token
+
+We have now succesfully completed our CI section of our CI/CD pipeline
+The next step is to set up the continous delivery which is a matter of providing a whole bunch of commands needed to push out our new code to our production network
+You can comment out all the docker steps(to make things as quick as possible) because we are not using docker in production (avoid using too many of our build minutes)
+create another job for CD
+jobs run in parallel so you need to pass in needs-list of jobs that need to complete before this job can run
+deploy on heroku and ubuntu server
+heroku;
+   pull our github repo
+   install heroku CLI
+   heroku login
+   add git remote for heroku
+   git push heroku main
+Look for a built action in the github marketplace that does this all under the hood
+heroku API key, heroku app name, heroku email - save the secrets in production environment
+heroku profile > account setings > API key

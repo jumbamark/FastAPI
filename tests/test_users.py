@@ -11,7 +11,7 @@ def test_root(client):
     print(res.json())
     # print(res.json().get("message"))
     assert res.json().get(
-        "message") == "Welcome to my API, here's to excellent stuff: bind mount works fine"
+        "message") == "Welcome to my API; successfully deployed from CI/CD pipeline"
     assert res.status_code == 200
 
 

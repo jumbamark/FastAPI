@@ -1054,4 +1054,8 @@ work with gihub secrets to not expose the details of our env variables (github p
 Another option; first remove the current repo secret then go to Environments option
 We can create one for testing,development,production
 Within the environment add a secret then in our job we can specify what the env is for the job
+
+
 We have to set up a database for testing on the runner itself or we would have to point it to a remote database
+setting up a test db on our runner;
+create a service container - github actions allows us to spin up a docker container (Docs-Creating PostgreSQL service containers)

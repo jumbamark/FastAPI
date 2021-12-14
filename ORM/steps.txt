@@ -1050,3 +1050,8 @@ after pulling the github repo, set up python (Marketplace > Setup Python)
 when adding the pytest step the workflow will fail due to validation errors (there are no environment variables)
 Setting our env variables in our workflow so that we can provide info for reaching our specific db;
 job specific environment variables  Github actions > env variables
+work with gihub secrets to not expose the details of our env variables (github page > settings > secrets - define secrets that we can use and access in our workflows)
+Another option; first remove the current repo secret then go to Environments option
+We can create one for testing,development,production
+Within the environment add a secret then in our job we can specify what the env is for the job
+We have to set up a database for testing on the runner itself or we would have to point it to a remote database

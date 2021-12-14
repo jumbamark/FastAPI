@@ -1059,3 +1059,11 @@ Within the environment add a secret then in our job we can specify what the env 
 We have to set up a database for testing on the runner itself or we would have to point it to a remote database
 setting up a test db on our runner;
 create a service container - github actions allows us to spin up a docker container (Docs-Creating PostgreSQL service containers)
+Creating a docker image and pushing to dockerhub;
+to have docker working in our github workflow;  (Docker docs - Confidure Github Actions)
+set up a repo on dockerhub  
+Generate an access token (github-actions)   
+create a secret for both our username as well as docker hub access token;
+Go to settings and put it in the previous testing environment
+once you set it up,follow the steps to set it up in our yamo file
+profile > account settings > security > new access_token

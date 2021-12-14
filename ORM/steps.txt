@@ -1083,3 +1083,10 @@ heroku;
 Look for a built action in the github marketplace that does this all under the hood
 heroku API key, heroku app name, heroku email - save the secrets in production environment
 heroku profile > account setings > API key
+
+Deploying updates to ubuntu server
+login to ubuntu
+cd /app/src
+git pull
+systemctl restart api
+Marketplace > sBuilt in action (SSH Remote Commamds) 

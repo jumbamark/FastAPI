@@ -1046,3 +1046,7 @@ Once defining what's going to trigger our workflow we have to then create a job 
 name of job > operating system > list of steps (under steps give the name(description) and uses(exact command))- Go to Github> Marketplace > checkout
 You could specify the specific repo that you want to pull however github already knows what repo we're working on bec we do the git push and all of this is integrated together
 after pulling the github repo, set up python (Marketplace > Setup Python)
+
+when adding the pytest step the workflow will fail due to validation errors (there are no environment variables)
+Setting our env variables in our workflow so that we can provide info for reaching our specific db;
+job specific environment variables  Github actions > env variables

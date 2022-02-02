@@ -736,7 +736,7 @@ Set up a bunch of rules > tell the firewall what kind of traffic should we allow
 sudo ufw enable
 sudo ufw status
 
-aking changes;
+Making changes;
 push to github then go to our application;
 cd FastAPI/app/src
 git pull
@@ -1089,4 +1089,4 @@ login to ubuntu
 cd /app/src
 git pull
 systemctl restart api
-Marketplace > sBuilt in action (SSH Remote Commamds) 
+Marketplace > Built in action (SSH Remote Commamds) 

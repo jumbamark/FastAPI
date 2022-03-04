@@ -2,4 +2,4 @@ __pycache__
 venv/
 .env
 .vscode
-ORM/README.md
+README.md
